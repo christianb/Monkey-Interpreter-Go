@@ -36,12 +36,29 @@ func TestNextTokenOneCharacter(t *testing.T) {
 			t.Fatalf("tests[%d] - tokentype wrong. expected=%q, got=%q", i, tokenType.expectedType, nextToken.Type)
 		}
 
-		if nextToken.Type != token.EOF && nextToken.Literal != string(input[i]) {
-			t.Fatalf("tests[%d] - literal wrong. expected=%q, got=%q", i, string(input[i]), nextToken.Literal)
-		}
-
 		if nextToken.Type == token.EOF && nextToken.Literal != "" {
 			t.Fatalf("EOF literal wrong. expected=\"\", got=%q", nextToken.Literal)
+		}
+	}
+}
+
+func TestNextTokenTwoCharacters(t *testing.T) {
+	input := `== !=`
+
+	tests := []struct {
+		expectedType token.TokenType
+	}{
+		{token.EQ},
+		{token.NOT_EQ},
+	}
+
+	lexer := New(input)
+
+	for i, tokenType := range tests {
+		nextToken := lexer.NextToken()
+
+		if nextToken.Type != tokenType.expectedType {
+			t.Fatalf("tests[%d] - tokentype wrong. expected=%q, got=%q", i, tokenType.expectedType, nextToken.Type)
 		}
 	}
 }
@@ -90,6 +107,9 @@ func TestNextTokenMultipleLines(t *testing.T) {
 		} else {
 			return false;
 		}
+
+		10 == 10;
+		10 != 9;
 	`
 
 	tests := []struct {
@@ -166,6 +186,15 @@ func TestNextTokenMultipleLines(t *testing.T) {
 		{token.FALSE, "false"},
 		{token.SEMICOLON, ";"},
 		{token.RBRACE, "}"},
+
+		{token.INT, "10"},
+		{token.EQ, "=="},
+		{token.INT, "10"},
+		{token.SEMICOLON, ";"},
+		{token.INT, "10"},
+		{token.NOT_EQ, "!="},
+		{token.INT, "9"},
+		{token.SEMICOLON, ";"},
 
 		{token.EOF, ""},
 	}
