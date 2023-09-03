@@ -9,36 +9,66 @@ func TestNextTokenOneCharacter(t *testing.T) {
 	input := `=+(){},;-/*<>`
 
 	tests := []struct {
-		expectedType    token.TokenType
-		expectedLiteral string
+		expectedType token.TokenType
 	}{
-		{token.ASSIGN, "="},
-		{token.PLUS, "+"},
-		{token.LPAREN, "("},
-		{token.RPAREN, ")"},
-		{token.LBRACE, "{"},
-		{token.RBRACE, "}"},
-		{token.COMMA, ","},
-		{token.SEMICOLON, ";"},
-		{token.MINUS, "-"},
-		{token.SLASH, "/"},
-		{token.ASTERISK, "*"},
-		{token.LT, "<"},
-		{token.GT, ">"},
-		{token.EOF, ""},
+		{token.ASSIGN},
+		{token.PLUS},
+		{token.LPAREN},
+		{token.RPAREN},
+		{token.LBRACE},
+		{token.RBRACE},
+		{token.COMMA},
+		{token.SEMICOLON},
+		{token.MINUS},
+		{token.SLASH},
+		{token.ASTERISK},
+		{token.LT},
+		{token.GT},
+		{token.EOF},
 	}
 
-	l := New(input)
+	lexer := New(input)
 
-	for i, tt := range tests {
-		tok := l.NextToken()
+	for i, tokenType := range tests {
+		nextToken := lexer.NextToken()
 
-		if tok.Type != tt.expectedType {
-			t.Fatalf("tests[%d] - tokentype wrong. expected=%q, got=%q", i, tt.expectedType, tok.Type)
+		if nextToken.Type != tokenType.expectedType {
+			t.Fatalf("tests[%d] - tokentype wrong. expected=%q, got=%q", i, tokenType.expectedType, nextToken.Type)
 		}
 
-		if tok.Literal != tt.expectedLiteral {
-			t.Fatalf("tests[%d] - literal wrong. expected=%q, got=%q", i, tt.expectedLiteral, tok.Literal)
+		if nextToken.Type != token.EOF && nextToken.Literal != string(input[i]) {
+			t.Fatalf("tests[%d] - literal wrong. expected=%q, got=%q", i, string(input[i]), nextToken.Literal)
+		}
+
+		if nextToken.Type == token.EOF && nextToken.Literal != "" {
+			t.Fatalf("EOF literal wrong. expected=\"\", got=%q", nextToken.Literal)
+		}
+	}
+}
+
+func TestNextTokenKeywords(t *testing.T) {
+	input := `fn let true false if else return`
+
+	tests := []struct {
+		expectedType token.TokenType
+	}{
+		{token.FUNCTION},
+		{token.LET},
+		{token.TRUE},
+		{token.FALSE},
+		{token.IF},
+		{token.ELSE},
+		{token.RETURN},
+		{token.EOF},
+	}
+
+	lexer := New(input)
+
+	for i, tokenType := range tests {
+		nextToken := lexer.NextToken()
+
+		if nextToken.Type != tokenType.expectedType {
+			t.Fatalf("tests[%d] - tokentype wrong. expected=%q, got=%q", i, tokenType.expectedType, nextToken.Type)
 		}
 	}
 }
@@ -54,6 +84,12 @@ func TestNextTokenMultipleLines(t *testing.T) {
 		let result = add(five, ten);
 		!-/*5;
 		5 < 10 > 5;
+
+		if (5 < 10) {
+			return true;
+		} else {
+			return false;
+		}
 	`
 
 	tests := []struct {
@@ -112,6 +148,24 @@ func TestNextTokenMultipleLines(t *testing.T) {
 		{token.GT, ">"},
 		{token.INT, "5"},
 		{token.SEMICOLON, ";"},
+
+		{token.IF, "if"},
+		{token.LPAREN, "("},
+		{token.INT, "5"},
+		{token.LT, "<"},
+		{token.INT, "10"},
+		{token.RPAREN, ")"},
+		{token.LBRACE, "{"},
+		{token.RETURN, "return"},
+		{token.TRUE, "true"},
+		{token.SEMICOLON, ";"},
+		{token.RBRACE, "}"},
+		{token.ELSE, "else"},
+		{token.LBRACE, "{"},
+		{token.RETURN, "return"},
+		{token.FALSE, "false"},
+		{token.SEMICOLON, ";"},
+		{token.RBRACE, "}"},
 
 		{token.EOF, ""},
 	}
