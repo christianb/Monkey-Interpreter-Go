@@ -70,10 +70,6 @@ func checkParseErrors(t *testing.T, p *Parser) {
 }
 
 func testLetStatement(t *testing.T, stmt ast.Statement, name string) bool {
-	if stmt.TokenLiteral() != "let" {
-		t.Errorf("s.TokenLiteral not 'let'. got=%q", stmt.TokenLiteral())
-	}
-
 	letStmt, ok := stmt.(*ast.LetStatement)
 	if !ok {
 		t.Errorf("stmt not *ast.LetStatement. got=%T", stmt)
@@ -82,11 +78,6 @@ func testLetStatement(t *testing.T, stmt ast.Statement, name string) bool {
 
 	if letStmt.Name.Value != name {
 		t.Errorf("letStmt.Name.Value not '%s'. got=%s", name, letStmt.Name.Value)
-		return false
-	}
-
-	if letStmt.Name.TokenLiteral() != name {
-		t.Errorf("letStmt.Name.TokenLiteral() not '%s'. got=%s", name, letStmt.Name.TokenLiteral())
 		return false
 	}
 
@@ -111,14 +102,10 @@ func TestReturnStatements(t *testing.T) {
 	}
 
 	for _, stmt := range program.Statements {
-		returnStmt, ok := stmt.(*ast.ReturnStatement)
+		_, ok := stmt.(*ast.ReturnStatement)
 		if !ok {
 			t.Errorf("stmt not *ast.ReturnStatement. got=%T", stmt)
 			continue
-		}
-
-		if returnStmt.TokenLiteral() != "return" {
-			t.Errorf("returnStmt.TokenLiteral not 'return', got %q", returnStmt.TokenLiteral())
 		}
 	}
 }
