@@ -5,3 +5,6 @@ All code and samples are based on the book "Writing an Interpreter in Go" by Tho
 
 ### Run Tests
 To execute all tests in all packages run: `go test ./...`
+
+### Learning
+* [Expression vs Statements](https://www.baeldung.com/cs/expression-vs-statement)
