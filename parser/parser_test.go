@@ -133,10 +133,41 @@ func TestIdentifierExpression(testing *testing.T) {
 	}
 
 	if identifier.Value != "foobar" {
-		testing.Errorf("identifier.Value not foobar. got=%s", identifier.Value)
+		testing.Errorf("identifier.Value is not foobar. got=%s", identifier.Value)
 	}
 
 	if identifier.TokenLiteral() != "foobar" {
 		testing.Errorf("identifier.TokenLiteral is not foobar. got=%s", identifier.TokenLiteral())
+	}
+}
+
+func TestIntegerLiteralExpression(testing *testing.T) {
+	input := "5;"
+
+	lexer := lexer.New(input)
+	parser := New(lexer)
+	program := parser.ParseProgram()
+	checkParseErrors(testing, parser)
+
+	if len(program.Statements) != 1 {
+		testing.Fatalf("program should have 1 statement. got=%d", len(program.Statements))
+	}
+
+	stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+	if !ok {
+		testing.Fatalf("program.Statements[0] is not *ast.ExpressionStatement. got=%T", program.Statements[0])
+	}
+
+	literal, ok := stmt.Expression.(*ast.IntegerLiteral)
+	if !ok {
+		testing.Fatalf("stmt.Expression is not *ast.IntegerLiteral. got=%T", stmt.Expression)
+	}
+
+	if literal.Value != 5 {
+		testing.Errorf("literal.Value is not 5. got=%d", literal.Value)
+	}
+
+	if literal.TokenLiteral() != "5" {
+		testing.Errorf("literal.TokenLiteral is not 5. got=%s", literal.TokenLiteral())
 	}
 }
