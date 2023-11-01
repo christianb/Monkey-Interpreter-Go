@@ -6,23 +6,23 @@ import (
 	"testing"
 )
 
-func TestLetStatement(t *testing.T) {
+func TestLetStatement(testing *testing.T) {
 	input := `
 		let x = 5;
 		let y = 10;
 		let foobar = 838383;
 		`
-	l := lexer.New(input)
-	p := New(l)
+	lexer := lexer.New(input)
+	parser := New(lexer)
 
-	program := p.ParseProgram()
-	checkParseErrors(t, p)
+	program := parser.ParseProgram()
+	checkParseErrors(testing, parser)
 	if program == nil {
-		t.Fatalf("ParseProgram() returned nil")
+		testing.Fatalf("ParseProgram() returned nil")
 	}
 
 	if len(program.Statements) != 3 {
-		t.Fatalf("expected program.Statements to contain 3 statements, but was %d", len(program.Statements))
+		testing.Fatalf("expected program.Statements to contain 3 statements, but was %d", len(program.Statements))
 	}
 
 	tests := []struct {
@@ -33,15 +33,15 @@ func TestLetStatement(t *testing.T) {
 		{"foobar"},
 	}
 
-	for i, tt := range tests {
+	for i, test := range tests {
 		stmt := program.Statements[i]
-		if !testLetStatement(t, stmt, tt.expectedIdentifier) {
+		if !testLetStatement(testing, stmt, test.expectedIdentifier) {
 			return
 		}
 	}
 }
 
-func TestParseErrors(t *testing.T) {
+func TestParseErrors(testing *testing.T) {
 	input := `
 	let x 5;
 	let = 10;
@@ -52,60 +52,91 @@ func TestParseErrors(t *testing.T) {
 	p.ParseProgram()
 
 	if len(p.errors) != 3 {
-		t.Fatalf("expected p.errors to contain 3 erros, but was %d", len(p.errors))
+		testing.Fatalf("expected p.errors to contain 3 erros, but was %d", len(p.errors))
 	}
 }
 
-func checkParseErrors(t *testing.T, p *Parser) {
-	errors := p.Errors()
+func checkParseErrors(testing *testing.T, parser *Parser) {
+	errors := parser.Errors()
 	if len(errors) == 0 {
 		return
 	}
 
-	t.Errorf("parser has %d errors", len(errors))
+	testing.Errorf("parser has %d errors", len(errors))
 	for _, msg := range errors {
-		t.Errorf("parser error: %q", msg)
+		testing.Errorf("parser error: %q", msg)
 	}
-	t.FailNow()
+	testing.FailNow()
 }
 
-func testLetStatement(t *testing.T, stmt ast.Statement, name string) bool {
+func testLetStatement(testint *testing.T, stmt ast.Statement, name string) bool {
 	letStmt, ok := stmt.(*ast.LetStatement)
 	if !ok {
-		t.Errorf("stmt not *ast.LetStatement. got=%T", stmt)
+		testint.Errorf("stmt not *ast.LetStatement. got=%T", stmt)
 		return false
 	}
 
 	if letStmt.Name.Value != name {
-		t.Errorf("letStmt.Name.Value not '%s'. got=%s", name, letStmt.Name.Value)
+		testint.Errorf("letStmt.Name.Value not '%s'. got=%s", name, letStmt.Name.Value)
 		return false
 	}
 
 	return true
 }
 
-func TestReturnStatements(t *testing.T) {
+func TestReturnStatements(testing *testing.T) {
 	input := `
 	return 5;
 	return 10;
 	return 993322,;
 	`
 
-	l := lexer.New(input)
-	p := New(l)
+	lexer := lexer.New(input)
+	parser := New(lexer)
 
-	program := p.ParseProgram()
-	checkParseErrors(t, p)
+	program := parser.ParseProgram()
+	checkParseErrors(testing, parser)
 
 	if len(program.Statements) != 3 {
-		t.Fatalf("program.Statements does not contain 3 statements, got=%d", len(program.Statements))
+		testing.Fatalf("program.Statements does not contain 3 statements, got=%d", len(program.Statements))
 	}
 
 	for _, stmt := range program.Statements {
 		_, ok := stmt.(*ast.ReturnStatement)
 		if !ok {
-			t.Errorf("stmt not *ast.ReturnStatement. got=%T", stmt)
+			testing.Errorf("stmt not *ast.ReturnStatement. got=%T", stmt)
 			continue
 		}
+	}
+}
+
+func TestIdentifierExpression(testing *testing.T) {
+	input := "foobar;"
+
+	lexer := lexer.New(input)
+	parser := New(lexer)
+	program := parser.ParseProgram()
+	checkParseErrors(testing, parser)
+
+	if len(program.Statements) != 1 {
+		testing.Fatalf("program should have 1 statement. got=%d", len(program.Statements))
+	}
+
+	stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+	if !ok {
+		testing.Fatalf("program.Statements[0] is not *ast.ExpressionStatement. got=%T", program.Statements[0])
+	}
+
+	identifier, ok := stmt.Expression.(*ast.Identifier)
+	if !ok {
+		testing.Fatalf("stmt.Expression is not *ast.Identifier. got=%T", stmt.Expression)
+	}
+
+	if identifier.Value != "foobar" {
+		testing.Errorf("identifier.Value not foobar. got=%s", identifier.Value)
+	}
+
+	if identifier.TokenLiteral() != "foobar" {
+		testing.Errorf("identifier.TokenLiteral is not foobar. got=%s", identifier.TokenLiteral())
 	}
 }
