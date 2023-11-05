@@ -168,12 +168,14 @@ func TestIntegerLiteralExpression(testing *testing.T) {
 
 func TestParsingPrefixExpressions(testing *testing.T) {
 	prefixTests := []struct {
-		input        string
-		operator     string
-		integerValue int64
+		input    string
+		operator string
+		value    interface{}
 	}{
 		{"!5", "!", 5},
 		{"-15", "-", 15},
+		{"!true", "!", true},
+		{"!false", "!", false},
 	}
 
 	for _, test := range prefixTests {
@@ -200,7 +202,7 @@ func TestParsingPrefixExpressions(testing *testing.T) {
 			testing.Fatalf("exp.Operator is not %s. got=%s", test.operator, exp.Operator)
 		}
 
-		testIntegerLiteral(testing, exp.Right, test.integerValue)
+		testLiteralExpression(testing, exp.Right, test.value)
 	}
 }
 
@@ -225,11 +227,11 @@ func testIntegerLiteral(testing *testing.T, il ast.Expression, expected int64) b
 }
 
 func TestParsingInfixExpressions(testing *testing.T) {
-	prefixTests := []struct {
+	infixTests := []struct {
 		input      string
-		leftValue  int64
+		leftValue  interface{}
 		operator   string
-		rightValue int64
+		rightValue interface{}
 	}{
 		{"5 + 5", 5, "+", 5},
 		{"5 - 5", 5, "-", 5},
@@ -239,9 +241,12 @@ func TestParsingInfixExpressions(testing *testing.T) {
 		{"5 < 5", 5, "<", 5},
 		{"5 == 5", 5, "==", 5},
 		{"5 != 5", 5, "!=", 5},
+		{"true == true", true, "==", true},
+		{"true != false", true, "!=", false},
+		{"false != false", false, "!=", false},
 	}
 
-	for _, test := range prefixTests {
+	for _, test := range infixTests {
 		lexer := lexer.New(test.input)
 		parser := New(lexer)
 		program := parser.ParseProgram()
@@ -256,20 +261,7 @@ func TestParsingInfixExpressions(testing *testing.T) {
 			testing.Fatalf("program.Statements[0] is not *ast.ExpressionStatement. got=%T", program.Statements[0])
 		}
 
-		exp, ok := stmt.Expression.(*ast.InfixExpression)
-		if !ok {
-			testing.Fatalf("stmt.Expression is not *ast.InfixExpression. got=%T", stmt.Expression)
-		}
-
-		if !testIntegerLiteral(testing, exp.Left, test.leftValue) {
-			return
-		}
-
-		if exp.Operator != test.operator {
-			testing.Fatalf("exp.Operator is not %s. got=%s", test.operator, exp.Operator)
-		}
-
-		testIntegerLiteral(testing, exp.Right, test.rightValue)
+		testInfixExpression(testing, stmt.Expression, test.leftValue, test.operator, test.rightValue)
 	}
 }
 
@@ -326,6 +318,22 @@ func TestOperatorPrecedenceParsing(testing *testing.T) {
 			"3 + 4 * 5 == 3 * 1 + 4 * 5",
 			"((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
 		},
+		{
+			"true",
+			"true",
+		},
+		{
+			"false",
+			"false",
+		},
+		{
+			"3 > 5 == false",
+			"((3 > 5) == false)",
+		},
+		{
+			"3 < 5 == true",
+			"((3 < 5) == true)",
+		},
 	}
 
 	for _, test := range tests {
@@ -339,4 +347,125 @@ func TestOperatorPrecedenceParsing(testing *testing.T) {
 			testing.Errorf("expected=%q got=%q", test.expected, actual)
 		}
 	}
+}
+
+func testIdentifier(testing *testing.T, expression ast.Expression, value string) bool {
+	identifier, ok := expression.(*ast.Identifier)
+	if !ok {
+		testing.Errorf("expression is not *ast.Identifier. got=%T", expression)
+		return false
+	}
+
+	if identifier.Value != value {
+		testing.Errorf("identifier.Value is not %s. got=%s", value, identifier.Value)
+		return false
+	}
+
+	if identifier.TokenLiteral() != value {
+		testing.Errorf("identifier.TokenLiteral is not %s. got=%s", value, identifier.TokenLiteral())
+		return false
+	}
+
+	return true
+}
+
+func testLiteralExpression(testing *testing.T, expression ast.Expression, expected interface{}) bool {
+	switch value := expected.(type) {
+	case int:
+		return testIntegerLiteral(testing, expression, int64(value))
+	case int64:
+		return testIntegerLiteral(testing, expression, value)
+	case string:
+		return testIdentifier(testing, expression, value)
+	case bool:
+		return testBooleanLiteral(testing, expression, value)
+	}
+
+	testing.Errorf("type of expression not handled. got=%T", expression)
+	return false
+}
+
+func testInfixExpression(
+	testing *testing.T,
+	expression ast.Expression,
+	left interface{},
+	operator string,
+	right interface{},
+) bool {
+	operatorExpression, ok := expression.(*ast.InfixExpression)
+	if !ok {
+		testing.Errorf("expression is not ast.InfixExpression. got=%T(%s)", expression, expression)
+		return false
+	}
+
+	if !testLiteralExpression(testing, operatorExpression.Left, left) {
+		return false
+	}
+
+	if operatorExpression.Operator != operator {
+		testing.Errorf("expression.Operator is not %s. got=%q", operator, operatorExpression.Operator)
+		return false
+	}
+
+	if !testLiteralExpression(testing, operatorExpression.Right, right) {
+		return false
+	}
+
+	return true
+}
+
+func TestBooleanExpression(testing *testing.T) {
+	tests := []struct {
+		input           string
+		expectedBoolean bool
+	}{
+		{"true;", true},
+		{"false;", false},
+	}
+
+	for _, test := range tests {
+		lexer := lexer.New(test.input)
+		parser := New(lexer)
+		program := parser.ParseProgram()
+		checkParseErrors(testing, parser)
+
+		if len(program.Statements) != 1 {
+			testing.Fatalf("program should have 1 statement. got=%d", len(program.Statements))
+		}
+
+		stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+		if !ok {
+			testing.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T", program.Statements[0])
+		}
+
+		boolean, ok := stmt.Expression.(*ast.Boolean)
+		if !ok {
+			testing.Fatalf("exp not *ast.Boolean. got=%T", stmt.Expression)
+		}
+
+		if boolean.Value != test.expectedBoolean {
+			testing.Errorf("boolean.Value not %t. got=%t", test.expectedBoolean, boolean.Value)
+		}
+	}
+}
+
+func testBooleanLiteral(t *testing.T, expression ast.Expression, value bool) bool {
+	expressionBoolean, ok := expression.(*ast.Boolean)
+	if !ok {
+		t.Errorf("expressionBoolean not *ast.Boolean. got=%T", expression)
+		return false
+	}
+
+	if expressionBoolean.Value != value {
+		t.Errorf("expressionBoolean.Value not %t. got=%t", value, expressionBoolean.Value)
+		return false
+	}
+
+	if expressionBoolean.TokenLiteral() != fmt.Sprintf("%t", value) {
+		t.Errorf("expressionBoolean.TokenLiteral not %t. got=%s",
+			value, expressionBoolean.TokenLiteral())
+		return false
+	}
+
+	return true
 }
