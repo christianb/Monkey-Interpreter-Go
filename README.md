@@ -1,7 +1,7 @@
 # Writing An Interpreter In Go
 This is an interpreter written in GoLang for the Monkey programming language. 
 
-All code and samples are based on the book "Writing an Interpreter in Go" by Thorsten Ball ([https://interpreterbook.com](https//interpreterbook.com)).
+All code and samples are based on the book ["Writing An Interpreter in Go"](https://interpreterbook.com) by Thorsten Ball.
 
 ### Run Tests
 To execute all tests in all packages run: `go test ./...`
