@@ -46,6 +46,16 @@ func New(lexer *lexer.Lexer) *Parser {
 	parser.registerPrefixFn(token.BANG, parser.parsePrefixExpression)
 	parser.registerPrefixFn(token.MINUS, parser.parsePrefixExpression)
 
+	parser.infixParseFn = make(map[token.TokenType]infixParseFn)
+	parser.registerInfixFn(token.PLUS, parser.parseInfixExpression)
+	parser.registerInfixFn(token.MINUS, parser.parseInfixExpression)
+	parser.registerInfixFn(token.SLASH, parser.parseInfixExpression)
+	parser.registerInfixFn(token.ASTERISK, parser.parseInfixExpression)
+	parser.registerInfixFn(token.EQ, parser.parseInfixExpression)
+	parser.registerInfixFn(token.NOT_EQ, parser.parseInfixExpression)
+	parser.registerInfixFn(token.LT, parser.parseInfixExpression)
+	parser.registerInfixFn(token.GT, parser.parseInfixExpression)
+
 	return parser
 }
 
@@ -67,7 +77,7 @@ func (parser *Parser) ParseProgram() *ast.Program {
 	program := &ast.Program{}
 	program.Statements = []ast.Statement{}
 
-	for parser.curToken.Type != token.EOF {
+	for !parser.curTokenIs(token.EOF) {
 		stmt := parser.parseStatement()
 		if stmt != nil {
 			program.Statements = append(program.Statements, stmt)
@@ -101,7 +111,7 @@ func (parser *Parser) parseLetStatement() *ast.LetStatement {
 	}
 
 	// TODO: We are skipping the expressions until we encounter a semicolon
-	for parser.curToken.Type != token.SEMICOLON {
+	for !parser.curTokenIs(token.SEMICOLON) {
 		parser.nextToken()
 	}
 
@@ -109,7 +119,7 @@ func (parser *Parser) parseLetStatement() *ast.LetStatement {
 }
 
 func (parser *Parser) expectPeek(t token.TokenType) bool {
-	if parser.peekToken.Type == t {
+	if parser.peekTokenIs(t) {
 		parser.nextToken()
 		return true
 	} else {
@@ -122,7 +132,7 @@ func (parser *Parser) parseReturnStatement() *ast.ReturnStatement {
 	parser.nextToken()
 
 	// TODO: we are skipping the expressions until we encounter a semicolon
-	for parser.curToken.Type != token.SEMICOLON {
+	for !parser.curTokenIs(token.SEMICOLON) {
 		parser.nextToken()
 	}
 
@@ -134,7 +144,7 @@ func (parser *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 
 	stmt.Expression = parser.parseExpression(LOWEST)
 
-	if parser.peekToken.Type == token.SEMICOLON {
+	if parser.peekTokenIs(token.SEMICOLON) {
 		parser.nextToken()
 	}
 
@@ -149,6 +159,16 @@ func (parser *Parser) parseExpression(precedence int) ast.Expression {
 	}
 
 	leftExpression := prefix()
+	for !parser.peekTokenIs(token.SEMICOLON) && precedence < parser.peekPrecedence() {
+		infix := parser.infixParseFn[parser.peekToken.Type]
+		if infix == nil {
+			return leftExpression
+		}
+
+		parser.nextToken()
+		leftExpression = infix(leftExpression)
+
+	}
 
 	return leftExpression
 }
@@ -200,4 +220,55 @@ func (parser *Parser) registerPrefixFn(tokkenType token.TokenType, fn prefixPars
 
 func (parser *Parser) registerInfixFn(tokkenType token.TokenType, fn infixParseFn) {
 	parser.infixParseFn[tokkenType] = fn
+}
+
+var precedences = map[token.TokenType]int{
+	token.EQ:       EQUALS,
+	token.NOT_EQ:   EQUALS,
+	token.LT:       LESSGREATER,
+	token.GT:       LESSGREATER,
+	token.PLUS:     SUM,
+	token.MINUS:    SUM,
+	token.SLASH:    PRODUCT,
+	token.ASTERISK: PRODUCT,
+}
+
+func (parser *Parser) getPrecedence(tokenType token.TokenType) int {
+	precedence, ok := precedences[tokenType]
+
+	if ok {
+		return precedence
+	}
+
+	return LOWEST
+}
+
+func (parser *Parser) peekPrecedence() int {
+	return parser.getPrecedence(parser.peekToken.Type)
+}
+
+func (parser *Parser) curPrecendence() int {
+	return parser.getPrecedence(parser.curToken.Type)
+}
+
+func (parser *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
+	expression := &ast.InfixExpression{
+		Token:    parser.curToken,
+		Operator: parser.curToken.Literal,
+		Left:     left,
+	}
+
+	precedence := parser.curPrecendence()
+	parser.nextToken()
+	expression.Right = parser.parseExpression(precedence)
+
+	return expression
+}
+
+func (parser *Parser) curTokenIs(t token.TokenType) bool {
+	return parser.curToken.Type == t
+}
+
+func (parser *Parser) peekTokenIs(t token.TokenType) bool {
+	return parser.peekToken.Type == t
 }
