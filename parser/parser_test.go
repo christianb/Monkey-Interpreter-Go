@@ -17,7 +17,7 @@ func TestLetStatement(testing *testing.T) {
 	parser := New(lexer)
 
 	program := parser.ParseProgram()
-	checkParseErrors(testing, parser)
+	checkParserErrors(testing, parser)
 	if program == nil {
 		testing.Fatalf("ParseProgram() returned nil")
 	}
@@ -61,7 +61,7 @@ func TestParseErrors(testing *testing.T) {
 	}
 }
 
-func checkParseErrors(testing *testing.T, parser *Parser) {
+func checkParserErrors(testing *testing.T, parser *Parser) {
 	errors := parser.Errors()
 	if len(errors) == 0 {
 		return
@@ -100,7 +100,7 @@ func TestReturnStatements(testing *testing.T) {
 	parser := New(lexer)
 
 	program := parser.ParseProgram()
-	checkParseErrors(testing, parser)
+	checkParserErrors(testing, parser)
 
 	if len(program.Statements) != 3 {
 		testing.Fatalf("program.Statements does not contain 3 statements, got=%d", len(program.Statements))
@@ -121,7 +121,7 @@ func TestIdentifierExpression(testing *testing.T) {
 	lexer := lexer.New(input)
 	parser := New(lexer)
 	program := parser.ParseProgram()
-	checkParseErrors(testing, parser)
+	checkParserErrors(testing, parser)
 
 	if len(program.Statements) != 1 {
 		testing.Fatalf("program should have 1 statement. got=%d", len(program.Statements))
@@ -152,7 +152,7 @@ func TestIntegerLiteralExpression(testing *testing.T) {
 	lexer := lexer.New(input)
 	parser := New(lexer)
 	program := parser.ParseProgram()
-	checkParseErrors(testing, parser)
+	checkParserErrors(testing, parser)
 
 	if len(program.Statements) != 1 {
 		testing.Fatalf("program should have 1 statement. got=%d", len(program.Statements))
@@ -182,7 +182,7 @@ func TestParsingPrefixExpressions(testing *testing.T) {
 		lexer := lexer.New(test.input)
 		parser := New(lexer)
 		program := parser.ParseProgram()
-		checkParseErrors(testing, parser)
+		checkParserErrors(testing, parser)
 
 		if len(program.Statements) != 1 {
 			testing.Fatalf("program should have 1 statement. got=%d", len(program.Statements))
@@ -250,7 +250,7 @@ func TestParsingInfixExpressions(testing *testing.T) {
 		lexer := lexer.New(test.input)
 		parser := New(lexer)
 		program := parser.ParseProgram()
-		checkParseErrors(testing, parser)
+		checkParserErrors(testing, parser)
 
 		if len(program.Statements) != 1 {
 			testing.Fatalf("program should have 1 statement. got=%d", len(program.Statements))
@@ -360,7 +360,7 @@ func TestOperatorPrecedenceParsing(testing *testing.T) {
 		lexer := lexer.New(test.input)
 		parser := New(lexer)
 		program := parser.ParseProgram()
-		checkParseErrors(testing, parser)
+		checkParserErrors(testing, parser)
 
 		actual := program.String()
 		if actual != test.expected {
@@ -447,7 +447,7 @@ func TestBooleanExpression(testing *testing.T) {
 		lexer := lexer.New(test.input)
 		parser := New(lexer)
 		program := parser.ParseProgram()
-		checkParseErrors(testing, parser)
+		checkParserErrors(testing, parser)
 
 		if len(program.Statements) != 1 {
 			testing.Fatalf("program should have 1 statement. got=%d", len(program.Statements))
@@ -488,4 +488,107 @@ func testBooleanLiteral(t *testing.T, expression ast.Expression, value bool) boo
 	}
 
 	return true
+}
+
+func TestIfExpression(t *testing.T) {
+	input := `if (x < y) { x }`
+
+	lexer := lexer.New(input)
+	parser := New(lexer)
+	program := parser.ParseProgram()
+	checkParserErrors(t, parser)
+
+	if len(program.Statements) != 1 {
+		t.Fatalf("program.Statments does not contain exactly 1 statment. got=%d", len(program.Statements))
+	}
+
+	statement, ok := program.Statements[0].(*ast.ExpressionStatement)
+	if !ok {
+		t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T", program.Statements[0])
+	}
+
+	expression, ok := statement.Expression.(*ast.IfExpression)
+	if !ok {
+		t.Fatalf("statement.Expression is not ast.IfExpression. got=%T", statement.Expression)
+	}
+
+	if !testInfixExpression(t, expression.Condition, "x", "<", "y") {
+		return
+	}
+
+	if len(expression.Consequence.Statements) != 1 {
+		t.Errorf("consequence is not 1 statement. got=%d", len(expression.Consequence.Statements))
+	}
+
+	consequence, ok := expression.Consequence.Statements[0].(*ast.ExpressionStatement)
+	if !ok {
+		t.Fatalf("Statements[0] is not ast.ExpressionStatement. got=%T", expression.Consequence.Statements[0])
+	}
+
+	if !testIdentifier(t, consequence.Expression, "x") {
+		return
+	}
+
+	if expression.Alternative != nil {
+		t.Errorf("expression.Alternative was not nil. got=%+v", expression.Alternative)
+	}
+}
+
+func TestIfElseExpression(t *testing.T) {
+	input := `if (x < y) { x } else { y }`
+
+	lexer := lexer.New(input)
+	parser := New(lexer)
+	program := parser.ParseProgram()
+	checkParserErrors(t, parser)
+
+	if len(program.Statements) != 1 {
+		t.Fatalf("program.Statements does not contain %d statements. got=%d\n",
+			1, len(program.Statements))
+	}
+
+	statement, ok := program.Statements[0].(*ast.ExpressionStatement)
+	if !ok {
+		t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
+			program.Statements[0])
+	}
+
+	expression, ok := statement.Expression.(*ast.IfExpression)
+	if !ok {
+		t.Fatalf("stmt.Expression is not ast.IfExpression. got=%T", statement.Expression)
+	}
+
+	if !testInfixExpression(t, expression.Condition, "x", "<", "y") {
+		return
+	}
+
+	if len(expression.Consequence.Statements) != 1 {
+		t.Errorf("consequence is not 1 statements. got=%d\n",
+			len(expression.Consequence.Statements))
+	}
+
+	consequence, ok := expression.Consequence.Statements[0].(*ast.ExpressionStatement)
+	if !ok {
+		t.Fatalf("Statements[0] is not ast.ExpressionStatement. got=%T",
+			expression.Consequence.Statements[0])
+	}
+
+	if !testIdentifier(t, consequence.Expression, "x") {
+		return
+	}
+
+	if len(expression.Alternative.Statements) != 1 {
+		t.Errorf("exp.Alternative.Statements does not contain 1 statements. got=%d\n",
+			len(expression.Alternative.Statements))
+	}
+
+	alternative, ok := expression.Alternative.Statements[0].(*ast.ExpressionStatement)
+	if !ok {
+		t.Fatalf("Statements[0] is not ast.ExpressionStatement. got=%T",
+			expression.Alternative.Statements[0])
+	}
+
+	if !testIdentifier(t, alternative.Expression, "y") {
+		return
+	}
 }
