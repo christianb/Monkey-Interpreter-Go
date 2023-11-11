@@ -60,8 +60,21 @@ func New(lexer *lexer.Lexer) *Parser {
 	parser.registerInfixFn(token.NOT_EQ, parser.parseInfixExpression)
 	parser.registerInfixFn(token.LT, parser.parseInfixExpression)
 	parser.registerInfixFn(token.GT, parser.parseInfixExpression)
+	parser.registerInfixFn(token.LPAREN, parser.parseCallExpression)
 
 	return parser
+}
+
+var precedences = map[token.TokenType]int{
+	token.EQ:       EQUALS,
+	token.NOT_EQ:   EQUALS,
+	token.LT:       LESSGREATER,
+	token.GT:       LESSGREATER,
+	token.PLUS:     SUM,
+	token.MINUS:    SUM,
+	token.SLASH:    PRODUCT,
+	token.ASTERISK: PRODUCT,
+	token.LPAREN:   CALL,
 }
 
 func (parser *Parser) Errors() []string {
@@ -227,17 +240,6 @@ func (parser *Parser) registerInfixFn(tokkenType token.TokenType, fn infixParseF
 	parser.infixParseFn[tokkenType] = fn
 }
 
-var precedences = map[token.TokenType]int{
-	token.EQ:       EQUALS,
-	token.NOT_EQ:   EQUALS,
-	token.LT:       LESSGREATER,
-	token.GT:       LESSGREATER,
-	token.PLUS:     SUM,
-	token.MINUS:    SUM,
-	token.SLASH:    PRODUCT,
-	token.ASTERISK: PRODUCT,
-}
-
 func (parser *Parser) getPrecedence(tokenType token.TokenType) int {
 	precedence, ok := precedences[tokenType]
 
@@ -387,4 +389,33 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 	}
 
 	return identifiers
+}
+
+func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
+	expression := &ast.CallExpression{Token: p.curToken, Function: function}
+	expression.Arguments = p.parseCallArguments()
+	return expression
+}
+
+func (p *Parser) parseCallArguments() []ast.Expression {
+	args := []ast.Expression{}
+	if p.peekTokenIs(token.RPAREN) {
+		p.nextToken()
+		return args
+	}
+
+	p.nextToken()
+	args = append(args, p.parseExpression(LOWEST))
+
+	for p.peekTokenIs(token.COMMA) {
+		p.nextToken()
+		p.nextToken()
+		args = append(args, p.parseExpression(LOWEST))
+	}
+
+	if !p.expectPeek(token.RPAREN) {
+		return nil
+	}
+
+	return args
 }
