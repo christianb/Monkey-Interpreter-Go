@@ -79,6 +79,9 @@ func (l *Lexer) NextToken() token.Token {
 	case 0:
 		tok.Literal = ""
 		tok.Type = token.EOF
+	case '"':
+		tok.Type = token.STRING
+		tok.Literal = l.readString()
 	default:
 		if isLetter(l.ch) {
 			tok.Literal = l.readIdentifier()
@@ -145,4 +148,17 @@ func (l *Lexer) newTwoCharToken(tokenType token.TokenType) token.Token {
 	ch := l.ch
 	l.readChar()
 	return token.Token{Type: tokenType, Literal: string(ch) + string(l.ch)}
+}
+
+func (l *Lexer) readString() string {
+	position := l.position + 1
+	for {
+		l.readChar()
+		if l.ch == '"' || l.ch == 0 {
+			break
+		}
+	}
+
+	// TODO throw error when no closing " found
+	return l.input[position:l.position]
 }
