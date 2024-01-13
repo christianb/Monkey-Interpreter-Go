@@ -313,5 +313,9 @@ func evalStringInfixExpression(operator string, left, right object.Object) objec
 		return &object.String{Value: leftVal + rightVal}
 	}
 
+	if operator == "==" {
+		return &object.Boolean{Value: leftVal == rightVal}
+	}
+
 	return newError("unknown operator: %s %s %s", left.Type(), operator, right.Type())
 }
